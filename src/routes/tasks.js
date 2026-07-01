@@ -1,71 +1,86 @@
 import { Router } from 'express'
+import pool from '../db.js'
 
 const router = Router()
 
-let tasks = [
-  { id: 1, title: 'Aprender Node.js', completed: false },
-  { id: 2, title: 'Construir una API', completed: false }
-]
-
-// GET /tasks — obtener todas las tareas
-router.get('/', (req, res) => {
-  res.json(tasks)
+// GET /tasks
+router.get('/', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM tasks ORDER BY id ASC')
+    res.json(result.rows)
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
 })
 
-// GET /tasks/:id — obtener una tarea por id
-router.get('/:id', (req, res) => {
-  const task = tasks.find(t => t.id === parseInt(req.params.id))
+// GET /tasks/:id
+router.get('/:id', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM tasks WHERE id = $1', [req.params.id])
 
-  if (!task) {
-    return res.status(404).json({ message: 'Tarea no encontrada' })
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Tarea no encontrada' })
+    }
+
+    res.json(result.rows[0])
+  } catch (err) {
+    res.status(500).json({ message: err.message })
   }
-
-  res.json(task)
 })
 
-// POST /tasks — crear una tarea
-router.post('/', (req, res) => {
-  const { title } = req.body
+// POST /tasks
+router.post('/', async (req, res) => {
+  try {
+    const { title } = req.body
 
-  if (!title) {
-    return res.status(400).json({ message: 'El título es requerido' })
+    if (!title) {
+      return res.status(400).json({ message: 'El título es requerido' })
+    }
+
+    const result = await pool.query(
+      'INSERT INTO tasks (title) VALUES ($1) RETURNING *',
+      [title]
+    )
+
+    res.status(201).json(result.rows[0])
+  } catch (err) {
+    res.status(500).json({ message: err.message })
   }
-
-  const newTask = {
-    id: tasks.length + 1,
-    title,
-    completed: false
-  }
-
-  tasks.push(newTask)
-  res.status(201).json(newTask)
 })
 
-// PUT /tasks/:id — actualizar una tarea
-router.put('/:id', (req, res) => {
-  const task = tasks.find(t => t.id === parseInt(req.params.id))
+// PUT /tasks/:id
+router.put('/:id', async (req, res) => {
+  try {
+    const { title, completed } = req.body
 
-  if (!task) {
-    return res.status(404).json({ message: 'Tarea no encontrada' })
+    const result = await pool.query(
+      'UPDATE tasks SET title = COALESCE($1, title), completed = COALESCE($2, completed) WHERE id = $3 RETURNING *',
+      [title, completed, req.params.id]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Tarea no encontrada' })
+    }
+
+    res.json(result.rows[0])
+  } catch (err) {
+    res.status(500).json({ message: err.message })
   }
-
-  const { title, completed } = req.body
-  if (title !== undefined) task.title = title
-  if (completed !== undefined) task.completed = completed
-
-  res.json(task)
 })
 
-// DELETE /tasks/:id — eliminar una tarea
-router.delete('/:id', (req, res) => {
-  const index = tasks.findIndex(t => t.id === parseInt(req.params.id))
+// DELETE /tasks/:id
+router.delete('/:id', async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM tasks WHERE id = $1 RETURNING *', [req.params.id])
 
-  if (index === -1) {
-    return res.status(404).json({ message: 'Tarea no encontrada' })
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Tarea no encontrada' })
+    }
+
+    res.json({ message: 'Tarea eliminada' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
   }
-
-  tasks.splice(index, 1)
-  res.json({ message: 'Tarea eliminada' })
 })
 
 export default router
