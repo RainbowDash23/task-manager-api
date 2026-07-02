@@ -6,7 +6,10 @@ const router = Router()
 // GET /tasks
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM tasks ORDER BY id ASC')
+    const result = await pool.query(
+      'SELECT * FROM tasks WHERE user_id = $1 ORDER BY id ASC',
+      [req.user.id]
+    )
     res.json(result.rows)
   } catch (err) {
     res.status(500).json({ message: err.message })
@@ -16,7 +19,10 @@ router.get('/', async (req, res) => {
 // GET /tasks/:id
 router.get('/:id', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM tasks WHERE id = $1', [req.params.id])
+    const result = await pool.query(
+      'SELECT * FROM tasks WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.id]
+    )
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Tarea no encontrada' })
@@ -38,8 +44,8 @@ router.post('/', async (req, res) => {
     }
 
     const result = await pool.query(
-      'INSERT INTO tasks (title) VALUES ($1) RETURNING *',
-      [title]
+      'INSERT INTO tasks (title, user_id) VALUES ($1, $2) RETURNING *',
+      [title, req.user.id]
     )
 
     res.status(201).json(result.rows[0])
@@ -54,8 +60,8 @@ router.put('/:id', async (req, res) => {
     const { title, completed } = req.body
 
     const result = await pool.query(
-      'UPDATE tasks SET title = COALESCE($1, title), completed = COALESCE($2, completed) WHERE id = $3 RETURNING *',
-      [title, completed, req.params.id]
+      'UPDATE tasks SET title = COALESCE($1, title), completed = COALESCE($2, completed) WHERE id = $3 AND user_id = $4 RETURNING *',
+      [title, completed, req.params.id, req.user.id]
     )
 
     if (result.rows.length === 0) {
@@ -71,7 +77,10 @@ router.put('/:id', async (req, res) => {
 // DELETE /tasks/:id
 router.delete('/:id', async (req, res) => {
   try {
-    const result = await pool.query('DELETE FROM tasks WHERE id = $1 RETURNING *', [req.params.id])
+    const result = await pool.query(
+      'DELETE FROM tasks WHERE id = $1 AND user_id = $2 RETURNING *',
+      [req.params.id, req.user.id]
+    )
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Tarea no encontrada' })
