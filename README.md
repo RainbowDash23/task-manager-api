@@ -292,8 +292,6 @@ task-manager-api/
 │   │   └── tasks.js        # CRUD de tareas
 │   ├── db.js               # Conexión a PostgreSQL
 │   └── index.js            # Punto de entrada del servidor
-├── .env                    # Variables de entorno (no se sube a GitHub)
-├── .env.example            # Plantilla de variables de entorno
 ├── .gitignore
 └── package.json
 ```
